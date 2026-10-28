@@ -1,0 +1,40 @@
+name: Build APK from zip
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          ZIP=$(ls *.zip | head -n 1)
+          echo "Archive: $ZIP"
+          unzip -q "$ZIP" -d project
+          SETTINGS=$(find project -maxdepth 3 -name 'settings.gradle*' | head -n 1)
+          DIR=$(dirname "$SETTINGS")
+          echo "Project dir: $DIR"
+          echo "PROJECT_DIR=$DIR" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+          build-root-directory: ${{ env.PROJECT_DIR }}
+
+      - name: Build debug APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: gradle assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LocalAI-debug-apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
